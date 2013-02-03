@@ -1,7 +1,12 @@
 package application;
 
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
-import java.sql.*;
 
 /**
  * Database is a class that specifies the interface to the movie database. Uses
@@ -77,5 +82,109 @@ public class Database {
 	}
 
 	/* --- insert own code here --- */
+
+	public boolean login(String userId) {
+		String sql = "SELECT username FROM Users WHERE username = ?";
+		CurrentUser user = CurrentUser.instance();
+		try {
+			PreparedStatement ps = conn.prepareStatement(sql);
+			ps.setString(1, userId);
+
+			ResultSet rs = ps.executeQuery();
+			user.loginAs((rs.first()) ? rs.getString("username") : null);
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		return user.isLoggedIn();
+	}
+
+	public ArrayList<String> getMovieList() {
+		ArrayList<String> m = new ArrayList<String>();
+		String sql = "SELECT title FROM Movies";
+		try {
+			Statement stmt = conn.createStatement();
+			ResultSet rs = stmt.executeQuery(sql);
+			while(rs.next()){
+				m.add(rs.getString("title"));
+			}
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		return m;
+	}
+
+	public ArrayList<String> getPerformanceDateList(String movieName) {
+		ArrayList<String> pd = new ArrayList<String>();
+		String sql = "SELECT date FROM Performances WHERE movie = ?";
+		try {
+			PreparedStatement ps = conn.prepareStatement(sql);
+			ps.setString(1, movieName);
+			
+			ResultSet rs = ps.executeQuery();
+			while(rs.next()){
+				pd.add(rs.getString("date"));
+			}
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		return pd;
+	}
+
+	public Performance getPerformance(String movieName, String date) {
+		String sql = "SELECT * FROM Performances " +
+					 "INNER JOIN Theaters ON Performances.theater = Theaters.name " +
+					 "WHERE movie = ? AND date = ?";
+		
+		Performance p = new Performance();
+		try {
+			PreparedStatement ps = conn.prepareStatement(sql);
+			ps.setString(1, movieName);
+			ps.setString(2, date);
+			
+			ResultSet rs = ps.executeQuery();
+			if(rs.first()) return  p.setPerformanceId(rs.getInt("performance_id"))
+									.setMovie(rs.getString("movie"))
+									.setTheater(rs.getString("theater"))
+									.setDate(rs.getString("date"))
+									.setAvailableSeats(rs.getInt("available_seats"))
+									.setReservedSeats(rs.getInt("reserved_seats"));
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		return null;
+	}
+
+	/**
+	 * Introduces concurrency errors since we don't use transactions.
+	 * 
+	 * @param movieName
+	 * @param date
+	 * @return
+	 */
+	public boolean createReservation(String movieName, String date) {
+		Performance p = getPerformance(movieName, date);
+
+		String insertReservation = "INSERT INTO Reservations VALUES (NULL, ?, ?)";
+		String updateSeats = "UPDATE Performances SET reserved_seats = reserved_seats+1 WHERE performance_id = ?";
+		
+		if(p.getFreeSeats() <= 0) return false;
+		try {
+			PreparedStatement ps1 = conn.prepareStatement(insertReservation);
+			PreparedStatement ps2 = conn.prepareStatement(updateSeats);
+			
+			ps1.setString(1, p.toString());
+			ps1.setString(2, CurrentUser.instance().getCurrentUserId());
+			
+			ps2.setString(1, p.toString());
+			
+			if(ps1.executeUpdate() == 1){
+				ps2.executeUpdate();
+				return true;
+			}
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		return false;
+	}
 
 }

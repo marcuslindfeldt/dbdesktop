@@ -1,15 +1,26 @@
 package gui;
 
-import javax.swing.*;
-import javax.swing.event.*;
+import java.awt.FlowLayout;
+import java.awt.GridLayout;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+
+import javax.swing.BoxLayout;
+import javax.swing.DefaultListModel;
+import javax.swing.JButton;
+import javax.swing.JComponent;
+import javax.swing.JLabel;
+import javax.swing.JList;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTextField;
+import javax.swing.ListSelectionModel;
+import javax.swing.event.ListSelectionEvent;
+import javax.swing.event.ListSelectionListener;
 
 import application.CurrentUser;
 import application.Database;
-
-import java.awt.*;
-import java.awt.event.*;
-
-import java.util.ArrayList;
+import application.Performance;
 
 /**
  * The GUI pane where a user books tickets for movie performances. It contains
@@ -178,6 +189,9 @@ public class BookingPane extends BasicPane {
 	private void fillNameList() {
 		nameListModel.removeAllElements();
         /* --- insert own code here --- */
+		for(String m : db.getMovieList()){
+			nameListModel.addElement(m);
+		}
 	}
 
 	/**
@@ -216,6 +230,11 @@ public class BookingPane extends BasicPane {
 			}
 			String movieName = (String) nameList.getSelectedValue();
 			/* --- insert own code here --- */
+			dateListModel.removeAllElements();
+			
+			for(String pd : db.getPerformanceDateList(movieName)){
+				dateListModel.addElement(pd);
+			}
 		}
 	}
 
@@ -238,6 +257,13 @@ public class BookingPane extends BasicPane {
 			String movieName = (String) nameList.getSelectedValue();
 			String date = (String) dateList.getSelectedValue();
 			/* --- insert own code here --- */
+			
+			
+			Performance p = db.getPerformance(movieName, date);
+			fields[MOVIE_NAME].setText(p.getMovie());
+			fields[FREE_SEATS].setText("" + p.getFreeSeats());
+			fields[THEATER_NAME].setText(p.getTheater());
+			fields[PERF_DATE].setText(p.getDate());
 		}
 	}
 
@@ -261,9 +287,20 @@ public class BookingPane extends BasicPane {
 				displayMessage("Must login first");
 				return;
 			}
+			
 			String movieName = (String) nameList.getSelectedValue();
 			String date = (String) dateList.getSelectedValue();
 			/* --- insert own code here --- */
+			
+			String msg = (db.createReservation(movieName, date))
+					   ? "Ticket reserved!"
+					   : "Unable to reserve ticket!";
+			
+			clearMessage();
+			displayMessage(msg);
+			
+			// update text fields
+			dateList.getListSelectionListeners()[0].valueChanged(null);
 		}
 	}
 }

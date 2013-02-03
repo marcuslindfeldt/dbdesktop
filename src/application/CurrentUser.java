@@ -60,4 +60,5 @@ public class CurrentUser {
     public void loginAs(String userId) {
         currentUserId = userId;
     }
+
 }

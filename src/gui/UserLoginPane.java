@@ -2,6 +2,7 @@ package gui;
 
 import javax.swing.*;
 
+import application.CurrentUser;
 import application.Database;
 
 import java.awt.event.*;
@@ -86,6 +87,10 @@ public class UserLoginPane extends BasicPane {
 		public void actionPerformed(ActionEvent e) {
 			String userId = fields[USER_ID].getText();
 			/* --- insert own code here --- */
+			String msg = (db.login(userId)) ? "Welcome, " + CurrentUser.instance().getCurrentUserId() : "Incorrect username!";
+			
+			clearMessage();
+			displayMessage(msg);
 		}
 	}
 }
