@@ -130,7 +130,7 @@ public class Database {
 		return pd;
 	}
 
-	public Performance getPerformance(String movieName, String date) {
+public Performance getPerformance(String movieName, String date) {
 		String sql = "SELECT * FROM Performances " +
 					 "INNER JOIN Theaters ON Performances.theater = Theaters.name " +
 					 "WHERE movie = ? AND date = ?";
@@ -154,35 +154,57 @@ public class Database {
 		return null;
 	}
 
-	/**
-	 * Introduces concurrency errors since we don't use transactions.
-	 * 
-	 * @param movieName
-	 * @param date
-	 * @return
-	 */
 	public boolean createReservation(String movieName, String date) {
-		Performance p = getPerformance(movieName, date);
-
-		String insertReservation = "INSERT INTO Reservations VALUES (NULL, ?, ?)";
-		String updateSeats = "UPDATE Performances SET reserved_seats = reserved_seats+1 WHERE performance_id = ?";
+		PreparedStatement ps1 = null, ps2 = null;
+		Performance p = null;
 		
-		if(p.getFreeSeats() <= 0) return false;
+		String insertStmt = "INSERT INTO Reservations " +
+							"VALUES (NULL, ?, ?)";
+		String updateStmt = "UPDATE Performances " + 
+							"SET reserved_seats = reserved_seats+1 " + 
+							"WHERE performance_id = ?";
+		
 		try {
-			PreparedStatement ps1 = conn.prepareStatement(insertReservation);
-			PreparedStatement ps2 = conn.prepareStatement(updateSeats);
+			conn.setAutoCommit(false);
+			
+			p = getPerformance(movieName, date);
+		
+			if(p.getFreeSeats() <= 0) return false;
+			
+			ps1 = conn.prepareStatement(insertStmt);
+			ps2 = conn.prepareStatement(updateStmt);
 			
 			ps1.setString(1, p.toString());
 			ps1.setString(2, CurrentUser.instance().getCurrentUserId());
 			
 			ps2.setString(1, p.toString());
 			
-			if(ps1.executeUpdate() == 1){
-				ps2.executeUpdate();
-				return true;
-			}
+			// execute insert statement
+			ps1.executeUpdate();
+			// execute update statement
+			ps2.executeUpdate();
+			// commit results
+			conn.commit();
+			
+			return true;
+			
 		} catch (SQLException e) {
+			try {
+				conn.rollback();
+			} catch (SQLException e1) {
+				// TODO Auto-generated catch block
+				e1.printStackTrace();
+			}
 			e.printStackTrace();
+		} finally {
+			try {
+				if(ps1 != null)	ps1.close();
+				if(ps2 != null) ps2.close();
+				conn.setAutoCommit(true);
+			} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 		}
 		return false;
 	}
